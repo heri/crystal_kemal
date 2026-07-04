@@ -2,9 +2,6 @@ require "kemal"
 require "pg"
 require "db"
 
-# Compose Objects (like Hash) to have a to_json method
-require "json/to_json"
-
 # DB pooling for performance
 DB_URL = ENV["DATABASE_URL"]? || "postgresql://localhost:5432/profiling"
 APPDB = DB.open(DB_URL)
@@ -16,55 +13,59 @@ class CONTENT
   HTML  = "text/html" + UTF8
 end
 
-private def set_user(user)
-  result = APPDB.exec("UPDATE users SET firstName = $1 WHERE id = $2", user[:firstName], user[:id])
-  { success: result.rows_affected > 0 }
-end
+module Clock
+  @@formatted = HTTP.format_time(Time.local)
 
-private def users
-  data = Array(NamedTuple(id: String, firstName: String)).new
-
-  APPDB.query_each("SELECT id, firstName FROM users") do |rs|
-    data.push({id: rs.read(String), firstName: rs.read(String)})
+  def self.formatted
+    @@formatted
   end
 
-  data
+  spawn do
+    loop do
+      sleep 1.second
+      @@formatted = HTTP.format_time(Time.local)
+    end
+  end
+end
+
+private def set_user(user)
+  result = APPDB.exec("UPDATE users SET firstName = $1 WHERE id = $2", user[:firstName], user[:id])
+  result.rows_affected > 0
 end
 
 before_all do |env|
   env.response.headers["Server"] = "Kemal"
-  env.response.headers["Date"] = HTTP.format_time(Time.local)
+  env.response.headers["Date"] = Clock.formatted
 end
 
 # Root Endpoint HTML
 get "/users" do |env|
   env.response.content_type = CONTENT::HTML
-  data = users
+  env.response.print "<!DOCTYPE html><html><head><title>Users</title></head><body><table><tr><th>id</th><th>name</th></tr>"
 
-  render "views/users.ecr"
+  APPDB.query_each("SELECT id, firstName FROM users") do |rs|
+    id = rs.read(Int32)
+    first_name = HTML.escape(rs.read(String))
+    env.response.print "<tr><td>#{id}</td><td>#{first_name}</td></tr>"
+  end
+
+  env.response.print "</table></body></html>"
 end
 
 # Json Endpoint: Database Updates
-# {"firstName": "Serdar", "Id": "12312B-A12313"}
+# {"firstName": "Serdar", "Id": 12312}
 post "/webhook" do |env|
   name = env.params.json["firstName"].as(String)
-  id = env.params.json["Id"].as(String)
-  updated = set_user({id: id, firstName: name})
+  id = env.params.json["Id"].as(Int64).to_i32
+  success = set_user({id: id, firstName: name})
   env.response.content_type = CONTENT::JSON
-  JSON.build do |json|
-    json.object do
-      updated.each do |key, value|
-        json.field key, value
-      end
-    end
-  end
+  %({"success":#{success}})
 end
 
 Kemal.config do |cfg|
   cfg.serve_static = false
   cfg.logging = false
   cfg.powered_by_header = false
-  cfg.server.not_nil!.bind_tcp(cfg.host_binding, cfg.port, reuse_port: true)
 end
 
 Kemal.run { |cfg| cfg.server.not_nil!.bind_tcp(cfg.host_binding, cfg.port, reuse_port: true) }

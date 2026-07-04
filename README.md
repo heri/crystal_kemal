@@ -37,10 +37,12 @@ Compile the application:
 crystal build main.cr --release
 ```
 
-Run the application on port 3000:
+Crystal runs single-threaded per process, so `main.cr` binds with `reuse_port` and `bin/server` starts one worker process per CPU core, letting the kernel load-balance connections across them:
 ```sh
-KEMAL_PORT=3000 ./main
+KEMAL_PORT=3000 bin/server
 ```
+
+Set `WORKERS` to override the worker count instead of using all cores.
 
 The server should now be running and accessible at http://localhost:3000.
 
