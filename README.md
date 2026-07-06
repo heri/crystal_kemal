@@ -31,6 +31,11 @@ CREATE DATABASE profiling;
 CREATE TABLE users (id SERIAL PRIMARY KEY, firstName VARCHAR(255));
 ```
 
+Seed the table with the 10,000 rows the `/db` benchmark endpoint reads from:
+```sh
+bin/seed
+```
+
 ### Running the Application
 Compile the application:
 ```sh
@@ -49,6 +54,8 @@ Each worker keeps its own Postgres connection pool, sized by `DB_POOL_SIZE` (def
 The server should now be running and accessible at http://localhost:3000.
 
 Endpoints
+* GET /json: Returns a static JSON payload with no database access. Mirrors TechEmpower's JSON Serialization test.
+* GET /db: Fetches one row out of the 10,000-row users table by a server-generated random id. Mirrors TechEmpower's Single Database Query test.
 * GET /users: Returns a list of users in HTML format.
 * POST /webhook: Updates a user's first name. Expects a JSON payload with firstName and Id.
 

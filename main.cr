@@ -48,6 +48,20 @@ before_all do |env|
   env.response.headers["Date"] = Clock.formatted
 end
 
+# JSON Serialization: no DB access
+get "/json" do |env|
+  env.response.content_type = CONTENT::JSON
+  %({"message":"Hello, World!"})
+end
+
+# Single Database Query: fetch one random row out of 10,000
+get "/db" do |env|
+  id = Random.rand(1..10_000)
+  first_name = APPDB.query_one("SELECT firstName FROM users WHERE id = $1", id, as: String)
+  env.response.content_type = CONTENT::JSON
+  %({"id":#{id},"firstName":#{first_name.to_json}})
+end
+
 # Root Endpoint HTML
 get "/users" do |env|
   env.response.content_type = CONTENT::HTML

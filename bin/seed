@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+psql "${DATABASE_URL:-postgresql://localhost:5432/profiling}" -c "
+  TRUNCATE users RESTART IDENTITY;
+  INSERT INTO users (firstName) SELECT 'user' || n FROM generate_series(1, 10000) n;
+"
