@@ -44,6 +44,8 @@ KEMAL_PORT=3000 bin/server
 
 Set `WORKERS` to override the worker count instead of using all cores.
 
+Each worker keeps its own Postgres connection pool, sized by `DB_POOL_SIZE` (default 25) so connections are pre-warmed instead of opened and closed on demand under load.
+
 The server should now be running and accessible at http://localhost:3000.
 
 Endpoints

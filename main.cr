@@ -4,7 +4,17 @@ require "db"
 
 # DB pooling for performance
 DB_URL = ENV["DATABASE_URL"]? || "postgresql://localhost:5432/profiling"
-APPDB = DB.open(DB_URL)
+POOL_SIZE = (ENV["DB_POOL_SIZE"]? || "25").to_i
+
+APPDB = begin
+  uri = URI.parse(DB_URL)
+  params = URI::Params.parse(uri.query || "")
+  params["initial_pool_size"] = POOL_SIZE.to_s
+  params["max_pool_size"] = POOL_SIZE.to_s
+  params["max_idle_pool_size"] = POOL_SIZE.to_s
+  uri.query = params.to_s
+  DB.open(uri.to_s)
+end
 
 class CONTENT
   UTF8  = "; charset=UTF-8"
